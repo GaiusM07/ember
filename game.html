@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Flame App</title>
+    <style>
+        /* DESIGN GRUNDLAGEN */
+        body {
+            margin: 0;
+            background-color: #000000;
+            color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        /* ANIMATIONEN */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.95); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        @keyframes gentleSway {
+            0% { transform: rotate(43deg) translate(0, 0) scale(var(--base-scale)); }
+            50% { transform: rotate(47deg) translate(-2px, -5px) scale(calc(var(--base-scale) * 1.02)); }
+            100% { transform: rotate(43deg) translate(0, 0) scale(var(--base-scale)); }
+        }
+
+        @keyframes liquidFlicker {
+            0% { transform: rotate(45deg) scale(var(--base-scale)); opacity: 1; filter: blur(0px); }
+            30% { transform: rotate(42deg) scale(calc(var(--base-scale) * 0.4)); opacity: 0.2; filter: blur(2px); }
+            50% { transform: rotate(48deg) scale(calc(var(--base-scale) * 0.3)); opacity: 0.1; }
+            70% { transform: rotate(45deg) scale(calc(var(--base-scale) * 1.2)); opacity: 0.8; filter: blur(0px); }
+            100% { transform: rotate(45deg) scale(var(--base-scale)); opacity: 1; }
+        }
+
+        @keyframes modalFlicker {
+            0%, 100% { transform: rotate(45deg) scale(1); opacity: 1; }
+            20% { transform: rotate(42deg) scale(0.9); opacity: 0.8; }
+            40% { transform: rotate(48deg) scale(1.1); opacity: 0.9; }
+            60% { transform: rotate(44deg) scale(0.8); opacity: 0.7; }
+            80% { transform: rotate(46deg) scale(1.2); opacity: 1; }
+        }
+
+        @keyframes successBloom {
+            0% { transform: rotate(45deg) scale(var(--base-scale)); filter: brightness(1); }
+            50% { transform: rotate(45deg) scale(calc(var(--base-scale) * 2)); filter: brightness(2) blur(2px); box-shadow: 0 0 80px #ffae00; }
+            100% { transform: rotate(45deg) scale(var(--base-scale)); filter: brightness(1); }
+        }
+
+        @keyframes extinguish {
+            0% { transform: rotate(45deg) scale(var(--base-scale)); filter: blur(0px); opacity: 1; }
+            50% { transform: rotate(45deg) scale(1.2) translateY(-20px); filter: blur(4px); opacity: 0.5; }
+            100% { transform: rotate(45deg) scale(0); filter: blur(10px); opacity: 0; }
+        }
+
+        @keyframes ignite {
+            0% { transform: rotate(45deg) scale(0); filter: brightness(5); }
+            40% { transform: rotate(45deg) scale(1.5); filter: brightness(2); }
+            100% { transform: rotate(45deg) scale(1); filter: brightness(1); }
+        }
+
+        .extinguish-anim { animation: extinguish 1.5s ease-in forwards !important; }
+        .ignite-anim { animation: ignite 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important; }
+        .flicker-active { animation: liquidFlicker 0.8s ease-in-out !important; }
+        .success-animation { animation: successBloom 1.2s ease-in-out forwards !important; }
+        .screen-exit { animation: fadeOut 0.5s ease-in forwards; }
+
+        .screen {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            padding: 30px;
+            box-sizing: border-box;
+            animation: fadeIn 0.6s ease-out;
+            position: relative;
+        }
+
+        .hidden { display: none !important; }
+
+        #burn-time-display {
+            font-size: 2.5rem;
+            color: #ff4500;
+            margin-top: 10px;
+            font-weight: bold;
+            transition: color 0.5s;
+        }
+
+        .flame-container { height: 200px; display: flex; justify-content: center; align-items: center; position: relative; width: 100%; }
+
+        .flame {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(45deg, #ff4500, #ffae00);
+            border-radius: 0 50% 50% 50%;
+            transform: rotate(45deg) scale(var(--base-scale, 1));
+            box-shadow: 0 0 40px #ff4500;
+            transition: background 0.5s, box-shadow 0.5s, opacity 0.5s; 
+            z-index: 2;
+        }
+
+        .modal-flame {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(45deg, #ff4500, #ffae00);
+            border-radius: 0 50% 50% 50%;
+            transform: rotate(45deg);
+            box-shadow: 0 0 20px #ff4500;
+            margin: 0 auto 15px auto;
+            animation: modalFlicker 0.6s infinite;
+        }
+
+        .home-anim { animation: gentleSway 3s infinite ease-in-out; }
+        .pulse { animation: pulseAnim 0.8s infinite alternate; }
+        
+        @keyframes pulseAnim {
+            from { transform: rotate(45deg) scale(var(--base-scale)); }
+            to { transform: rotate(45deg) scale(calc(var(--base-scale) * 1.15)); }
+        }
+
+        .particle { position: absolute; width: 4px; height: 4px; background: #ffae00; border-radius: 50%; pointer-events: none; box-shadow: 0 0 10px #ff4500; }
+
+        .btn-focus {
+            background-color: transparent;
+            color: white;
+            border: 1.5px solid rgba(255, 255, 255, 0.4);
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.4s ease;
+        }
+        .btn-focus:hover { border-color: #ff4500; color: #ff4500; box-shadow: 0 0 15px rgba(255, 69, 0, 0.4); }
+
+        .btn-icon-top {
+            position: absolute;
+            top: 20px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            z-index: 10010;
+            font-size: 1.2rem;
+            transition: 0.3s;
+        }
+        .btn-icon-top:hover { background: rgba(255,255,255,0.2); border-color: #ff4500; }
+        .pos-right { right: 20px; }
+        .pos-left { left: 20px; }
+        .pos-center-top { left: 50%; transform: translateX(-50%); }
+
+        .minutes-input-main {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 5rem;
+            font-weight: bold;
+            width: 100%;
+            text-align: center;
+            outline: none;
+            font-family: inherit;
+            margin: 0;
+        }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; cursor: pointer; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; background: #ff4500; cursor: pointer; margin-top: -9px; box-shadow: 0 0 15px #ff4500, 0 0 5px white; border: 2px solid white; transition: transform 0.2s, box-shadow 0.2s; }
+
+        .intensity-container { display: flex; justify-content: space-between; gap: 10px; margin: 20px 0; }
+        .intensity-option { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px 5px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-size: 0.8rem; }
+        .intensity-option.active { border-color: #ff4500; background: rgba(255, 69, 0, 0.2); }
+        .intensity-option span { display: block; font-weight: bold; font-size: 1rem; margin-bottom: 4px; }
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+        .stats-card { background: #111; border: 1px solid #222; padding: 15px; border-radius: 15px; }
+        .stats-card span { display: block; font-size: 1.5rem; font-weight: bold; color: #ff4500; }
+        
+        .chart-container { height: 150px; display: flex; align-items: flex-end; justify-content: space-between; padding: 15px; background: #0a0a0a; border-radius: 15px; border: 1px solid #222; margin-top: 10px; }
+        .chart-bar { width: 10%; background: linear-gradient(to top, #ff4500, #ffae00); border-radius: 5px 5px 0 0; transition: height 0.8s ease-out; min-height: 2px; }
+
+        #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 20000; backdrop-filter: blur(8px); }
+        .modal-card { background: #111; border: 1px solid #333; padding: 30px; border-radius: 25px; max-width: 300px; text-align: center; animation: fadeIn 0.3s ease-out, shake 0.4s ease-in-out 0.2s; }
+        .modal-buttons { display: flex; flex-direction: column; gap: 12px; }
+        .btn-modal-confirm { background: #8B0000; color: white; border: none; padding: 14px; border-radius: 15px; cursor: pointer; font-weight: bold; }
+        .btn-modal-back { background: rgba(255,255,255,0.05); color: #ccc; border: 1px solid #444; padding: 12px; border-radius: 15px; cursor: pointer; }
+
+        .btn-cancel { background: transparent; border: 1px solid #333; color: #555; padding: 10px 20px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; }
+        .debug-bar { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+        .debug-btn { background: #222; color: #444; border: 1px solid #333; padding: 5px 10px; font-size: 0.6rem; cursor: pointer; border-radius: 5px; }
+        #active-countdown { font-size: 5rem; font-weight: bold; }
+        #success-message { font-size: 1.5rem; color: #ffae00; margin-bottom: 20px; font-weight: bold; letter-spacing: 3px; }
+        .goal-info { background: rgba(255, 69, 0, 0.1); border: 1px solid rgba(255, 69, 0, 0.3); padding: 12px; border-radius: 15px; margin-top: 10px; font-size: 0.8rem; }
+        
+        #screen-gameover { background: radial-gradient(circle, #1a0000 0%, #000000 100%); }
+        .dezent-info { opacity: 0.4; font-size: 0.75rem; margin-top: 20px; letter-spacing: 1px; }
+
+        /* TAGEBUCH STYLES */
+        .journal-list { flex-grow: 1; overflow-y: auto; margin: 20px 0; display: flex; flex-direction: column; gap: 10px; padding-right: 5px; }
+        .journal-item { background: #111; border: 1px solid #222; padding: 15px; border-radius: 15px; text-align: left; cursor: pointer; transition: 0.3s; }
+        .journal-item:hover { border-color: #ff4500; }
+        .journal-item .date { font-weight: bold; color: #ff4500; font-size: 0.9rem; }
+        .journal-item .preview { opacity: 0.5; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 5px; }
+        .journal-textarea { width: 100%; flex-grow: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; color: white; padding: 15px; box-sizing: border-box; font-family: inherit; font-size: 1rem; resize: none; outline: none; margin-bottom: 20px; }
+        .journal-textarea:focus { border-color: #ff4500; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="screen-home" class="screen">
+        <button class="btn-icon-top pos-left" onclick="showProfile()">⚙️</button>
+        <button class="btn-icon-top pos-center-top" onclick="showJournal()">📝</button>
+        <button class="btn-icon-top pos-right" onclick="showStats()">📊</button>
+        <div>
+            <p style="letter-spacing: 2px; opacity: 0.7; font-size: 0.8rem;">RESTLICHE BRENNDAUER</p>
+            <div id="burn-time-display">24:00:00</div>
+        </div>
+        <div class="flame-container">
+            <div id="home-flame" class="flame home-anim"></div>
+        </div>
+        <button id="btn-start-focus" class="btn-focus" onclick="showSettings()">Focus starten</button>
+        <div class="debug-bar">
+            <button class="debug-btn" onclick="debugTime(-5)">-5h</button>
+            <button class="debug-btn" onclick="debugTime('reset')">Reset</button>
+            <button class="debug-btn" onclick="debugTime(5)">+5h</button>
+        </div>
+    </div>
+
+    <div id="screen-gameover" class="screen hidden">
+        <h1 style="color: #555; letter-spacing: 5px;">ERLOSCHEN</h1>
+        <div class="flame-container">
+            <div id="dead-flame" class="flame" style="opacity: 0; transform: scale(0);"></div>
+        </div>
+        <div>
+            <p style="opacity: 0.6;">Deine Flamme braucht neue Energie.</p>
+            <div class="dezent-info">Letzte Brenndauer: <span id="last-record">0h</span></div>
+        </div>
+        <button class="btn-focus" style="border-color: #ff4500; color: #ff4500;" onclick="relightFlame()">Neu entfachen</button>
+    </div>
+
+    <div id="screen-profile" class="screen hidden">
+        <button class="btn-icon-top pos-left" onclick="goBackHome()">✕</button>
+        <h2 style="margin-bottom: 0;">TAGESZIEL</h2>
+        <div class="slider-container">
+            <input type="number" id="goal-input" class="minutes-input-main" style="font-size: 3.5rem;" value="4" min="1" max="24" oninput="syncGoalSlider(this.value)">
+            <p style="opacity: 0.6; margin-top: -10px;">Stunden Fokuszeit</p>
+            <input type="range" id="goal-slider" min="1" max="24" step="1" value="4" oninput="syncGoalInput(this.value)">
+        </div>
+
+        <h2 style="margin-top: 20px; margin-bottom: 5px;">LERNINTENSITÄT</h2>
+        <div class="intensity-container">
+            <div id="int-low" class="intensity-option" onclick="setIntensity('low')">
+                <span>Niedrig</span> 30m - 1h
+            </div>
+            <div id="int-med" class="intensity-option" onclick="setIntensity('med')">
+                <span>Mittel</span> 2 - 4h
+            </div>
+            <div id="int-high" class="intensity-option" onclick="setIntensity('high')">
+                <span>Hoch</span> 4 - 8h
+            </div>
+        </div>
+
+        <div class="goal-info">
+            Faktor: <b id="display-factor">x3</b> | Bonus pro Min: <b id="display-bonus">3m</b>
+        </div>
+        
+        <button class="btn-focus" style="margin-top: 20px;" onclick="saveGoalAndReturn()">Speichern</button>
+    </div>
+
+    <div id="screen-settings" class="screen hidden">
+        <button class="btn-icon-top pos-left" onclick="goBackHome()">✕</button>
+        <h1>DAUER</h1>
+        <div class="slider-container">
+            <input type="number" id="minutes-input-main" class="minutes-input-main" value="25" min="1" max="180" oninput="syncFromInput(this.value)">
+            <p style="opacity: 0.6; margin-top: -10px; margin-bottom: 20px;">Minuten</p>
+            <input type="range" id="minutes-slider" min="5" max="120" step="5" value="25" oninput="syncFromSlider(this.value)">
+        </div>
+        <button class="btn-focus" onclick="startFocusTimer()">Start</button>
+    </div>
+
+    <div id="screen-active" class="screen hidden">
+        <div id="success-message" class="hidden">GESCHAFFT!</div>
+        <div id="active-countdown">25:00</div>
+        <div class="flame-container" id="active-flame-container">
+            <div class="flame pulse" id="active-flame"></div>
+        </div>
+        <p id="focus-instruction" style="opacity: 0.6;">Konzentrier dich...</p>
+        <button id="cancel-btn" class="btn-cancel" onclick="showModal()">Fokus abbrechen</button>
+    </div>
+
+    <div id="screen-stats" class="screen hidden">
+        <h1>ÜBERSICHT</h1>
+        <div class="stats-grid">
+            <div class="stats-card">Heute<span id="stat-today">0 Min</span></div>
+            <div class="stats-card">Ziel<span id="stat-goal-display">0 Min</span></div>
+        </div>
+        <div class="chart-container" id="week-chart"></div>
+        <div style="display: flex; justify-content: space-between; padding: 5px 15px; margin-bottom: 20px; font-size: 0.7rem; opacity: 0.5;">
+            <div>MO</div><div>DI</div><div>MI</div><div>DO</div><div>FR</div><div>SA</div><div>SO</div>
+        </div>
+        <button class="btn-focus" onclick="goBackHome()">Zurück</button>
+    </div>
+
+    <div id="screen-journal" class="screen hidden">
+        <button class="btn-icon-top pos-left" onclick="goBackHome()">✕</button>
+        <h1 style="margin-bottom: 5px;">TAGEBUCH</h1>
+        <div id="journal-list-container" class="journal-list"></div>
+        <button class="btn-focus" onclick="openJournalEditor()">Neuer Eintrag</button>
+    </div>
+
+    <div id="screen-journal-editor" class="screen hidden">
+        <button class="btn-icon-top pos-left" onclick="showJournal()">✕</button>
+        <h2 id="journal-editor-date" style="color: #ff4500; margin-bottom: 10px;">DATUM</h2>
+        <textarea id="journal-text" class="journal-textarea" placeholder="Was hast du heute geschafft?"></textarea>
+        <button class="btn-focus" onclick="saveJournalEntry()">Speichern</button>
+    </div>
+
+    <div id="modal-overlay" class="hidden">
+        <div class="modal-card">
+            <div class="modal-flame"></div>
+            <h2 style="margin-top: 0;">Vorsicht!</h2>
+            <p>Dein Fokus bricht ab und deine Flamme verliert 1 Stunde Energie.</p>
+            <div class="modal-buttons">
+                <button class="btn-modal-confirm" onclick="executeCancel()">Ja, Abbrechen</button>
+                <button class="btn-modal-back" onclick="hideModal()">Weiter fokussieren</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- VARIABLEN & STATES ---
+        let totalBurnSeconds = localStorage.getItem('savedTime') ? parseInt(localStorage.getItem('savedTime')) : 86400; 
+        let dailyGoalHours = localStorage.getItem('dailyGoal') ? parseInt(localStorage.getItem('dailyGoal')) : 4;
+        let learningIntensity = localStorage.getItem('intensity') ? localStorage.getItem('intensity') : 'med';
+        
+        const MAX_TIME = 172800; 
+        const BASE_TIME = 86400; 
+        let focusInterval;
+        let particleInterval;
+        let currentFocusMins = 0;
+        let isFocusActive = false;
+        let isGameOver = false;
+
+        const intensityFactors = { 'low': 5, 'med': 3, 'high': 1.5 };
+        let journalData = JSON.parse(localStorage.getItem('journalData')) || {};
+        let currentEditingDate = "";
+
+        // --- CORE LOGIC (HISTORY) ---
+        let focusHistory;
+        function loadHistory() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('focusHistory'));
+                if (saved && saved.daily && Array.isArray(saved.week)) {
+                    focusHistory = saved;
+                } else {
+                    throw new Error("Invalid format");
+                }
+            } catch(e) {
+                focusHistory = { daily: {}, week: [0, 0, 0, 0, 0, 0, 0], lastReset: new Date().toISOString(), totalLifeRecord: 0 };
+            }
+            checkAndResetDay();
+        }
+
+        function checkAndResetDay() {
+            const now = new Date();
+            const lastResetStr = focusHistory.lastReset || new Date(0).toISOString();
+            const lastReset = new Date(lastResetStr);
+            const todayDateStr = now.toISOString().split('T')[0];
+            const lastResetDateStr = lastReset.toISOString().split('T')[0];
+
+            if (todayDateStr !== lastResetDateStr) {
+                const yesterdayMins = focusHistory.daily[lastResetDateStr] || 0;
+                const goalMins = dailyGoalHours * 60;
+                if (yesterdayMins >= goalMins) {
+                    if (totalBurnSeconds < BASE_TIME) totalBurnSeconds = BASE_TIME;
+                    else totalBurnSeconds = Math.min(MAX_TIME, totalBurnSeconds + (8 * 3600));
+                    localStorage.setItem('savedTime', totalBurnSeconds);
+                    updateBurnUI();
+                }
+                const currentDay = now.getDay(); 
+                const diffToMonday = (currentDay === 0 ? 6 : currentDay - 1);
+                const startOfCurrentWeek = new Date(now);
+                startOfCurrentWeek.setHours(0,0,0,0);
+                startOfCurrentWeek.setDate(now.getDate() - diffToMonday);
+                if (lastReset < startOfCurrentWeek) focusHistory.week = [0, 0, 0, 0, 0, 0, 0];
+                focusHistory.lastReset = now.toISOString();
+                localStorage.setItem('focusHistory', JSON.stringify(focusHistory));
+            }
+        }
+
+        // --- BACKGROUND SYNC LOGIC ---
+        function syncTimeSinceLastExit() {
+            const lastTimestamp = localStorage.getItem('lastActiveTimestamp');
+            const now = Date.now();
+            
+            if (lastTimestamp && !isGameOver) {
+                const secondsPassed = Math.floor((now - parseInt(lastTimestamp)) / 1000);
+                const focusEndTime = localStorage.getItem('focusEndTime');
+                
+                if (focusEndTime) {
+                    const timeLeft = Math.floor((parseInt(focusEndTime) - now) / 1000);
+                    if (timeLeft <= 0) {
+                        completeFocusOffline(parseInt(localStorage.getItem('focusMinsTarget')));
+                    } else {
+                        resumeFocusTimer(timeLeft);
+                    }
+                } else if (!isFocusActive) {
+                    totalBurnSeconds = Math.max(0, totalBurnSeconds - secondsPassed);
+                }
+            }
+            
+            localStorage.setItem('lastActiveTimestamp', Date.now());
+            if (totalBurnSeconds <= 0 && !isGameOver) triggerGameOver(false); 
+            updateBurnUI();
+        }
+
+        function startGlobalBurner() {
+            setInterval(() => {
+                if (totalBurnSeconds > 0 && !isFocusActive && !isGameOver) {
+                    totalBurnSeconds--;
+                    updateBurnUI();
+                    localStorage.setItem('savedTime', totalBurnSeconds);
+                    focusHistory.totalLifeRecord = (focusHistory.totalLifeRecord || 0) + 1;
+                    if (totalBurnSeconds <= 0) triggerGameOver(true);
+                }
+                localStorage.setItem('lastActiveTimestamp', Date.now());
+            }, 1000);
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === 'visible') syncTimeSinceLastExit();
+        });
+
+        // --- GAME OVER LOGIC ---
+        function triggerGameOver(withAnimation) {
+            isGameOver = true;
+            const homeFlame = document.getElementById('home-flame');
+            if (withAnimation) {
+                homeFlame.classList.remove('home-anim');
+                homeFlame.classList.add('extinguish-anim');
+                setTimeout(showGameOverScreen, 1600);
+            } else {
+                showGameOverScreen();
+            }
+        }
+
+        function showGameOverScreen() {
+            const recordHours = (focusHistory.totalLifeRecord / 3600).toFixed(1);
+            document.getElementById('last-record').innerText = recordHours + " Stunden";
+            localStorage.setItem('focusHistory', JSON.stringify(focusHistory));
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById('screen-gameover').classList.remove('hidden');
+        }
+
+        function relightFlame() {
+            const deadFlame = document.getElementById('dead-flame');
+            deadFlame.style.opacity = "1";
+            deadFlame.classList.add('ignite-anim');
+            setTimeout(() => {
+                totalBurnSeconds = BASE_TIME;
+                focusHistory.totalLifeRecord = 0;
+                isGameOver = false;
+                deadFlame.classList.remove('ignite-anim');
+                deadFlame.style.opacity = "0";
+                const homeFlame = document.getElementById('home-flame');
+                homeFlame.classList.remove('extinguish-anim');
+                homeFlame.classList.add('home-anim');
+                localStorage.setItem('savedTime', totalBurnSeconds);
+                localStorage.setItem('focusHistory', JSON.stringify(focusHistory));
+                goBackHome();
+                updateBurnUI();
+            }, 800);
+        }
+
+        // --- UI UPDATES ---
+        function updateBurnUI() {
+            if (isGameOver) return;
+            const h = Math.floor(totalBurnSeconds / 3600);
+            const m = Math.floor((totalBurnSeconds % 3600) / 60);
+            const s = totalBurnSeconds % 60;
+            const display = document.getElementById('burn-time-display');
+            if(display) display.innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            
+            let scaleFactor = totalBurnSeconds / BASE_TIME; 
+            const finalScale = Math.min(1.6, Math.max(0.3, scaleFactor));
+            document.documentElement.style.setProperty('--base-scale', finalScale);
+            
+            let isPurple = totalBurnSeconds >= 144000;
+            let colorGradient = isPurple ? "linear-gradient(45deg, #8A2BE2, #DA70D6)" : "linear-gradient(45deg, #ff4500, #ffae00)";
+            let shadowColor = isPurple ? "#9400D3" : "#ff4500";
+            
+            if(display) display.style.color = isPurple ? "#DA70D6" : "#ff4500";
+            [document.getElementById('home-flame'), document.getElementById('active-flame'), document.getElementById('dead-flame')].forEach(f => {
+                if(f) {
+                    f.style.background = colorGradient;
+                    f.style.boxShadow = `0 0 ${40 * finalScale}px ${shadowColor}`;
+                }
+            });
+        }
+
+        // --- FOCUS TIMER FUNCTIONS ---
+        function startFocusTimer() {
+            currentFocusMins = parseInt(document.getElementById('minutes-input-main').value) || 1;
+            let focusSecondsLeft = currentFocusMins * 60;
+            const endTime = Date.now() + (focusSecondsLeft * 1000);
+            localStorage.setItem('focusEndTime', endTime);
+            localStorage.setItem('focusMinsTarget', currentFocusMins);
+            runFocusUI(focusSecondsLeft);
+        }
+
+        function resumeFocusTimer(secondsLeft) {
+            currentFocusMins = parseInt(localStorage.getItem('focusMinsTarget'));
+            changeScreen('screen-home', 'screen-active'); 
+            runFocusUI(secondsLeft);
+        }
+
+        function runFocusUI(secondsLeft) {
+            isFocusActive = true; 
+            document.getElementById('success-message').classList.add('hidden');
+            document.getElementById('active-countdown').classList.remove('hidden');
+            document.getElementById('cancel-btn').classList.remove('hidden');
+            document.getElementById('focus-instruction').classList.remove('hidden');
+            document.getElementById('active-flame').classList.remove('success-animation');
+            if (!document.getElementById('screen-settings').classList.contains('hidden')) {
+                changeScreen('screen-settings', 'screen-active');
+            }
+            clearInterval(focusInterval);
+            clearInterval(particleInterval);
+            particleInterval = setInterval(createParticle, 150);
+            focusInterval = setInterval(() => {
+                secondsLeft--;
+                const m = Math.floor(secondsLeft / 60);
+                const s = secondsLeft % 60;
+                document.getElementById('active-countdown').innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                if (secondsLeft <= 0) {
+                    clearInterval(focusInterval);
+                    clearInterval(particleInterval);
+                    isFocusActive = false;
+                    localStorage.removeItem('focusEndTime');
+                    triggerSuccessSequence();
+                }
+            }, 1000);
+        }
+
+        function completeFocusOffline(mins) {
+            const factor = intensityFactors[learningIntensity] || 3;
+            const rewardSeconds = mins * 60 * factor;
+            totalBurnSeconds = Math.min(MAX_TIME, totalBurnSeconds + rewardSeconds);
+            saveFocusSession(mins);
+            localStorage.removeItem('focusEndTime');
+            updateBurnUI();
+        }
+
+        function triggerSuccessSequence() {
+            const activeFlame = document.getElementById('active-flame');
+            document.getElementById('active-countdown').classList.add('hidden');
+            document.getElementById('cancel-btn').classList.add('hidden');
+            document.getElementById('focus-instruction').classList.add('hidden');
+            document.getElementById('success-message').classList.remove('hidden');
+            activeFlame.classList.add('success-animation');
+            completeFocusOffline(currentFocusMins);
+            setTimeout(() => {
+                const activeScreen = document.getElementById('screen-active');
+                activeScreen.classList.add('screen-exit');
+                setTimeout(() => {
+                    activeScreen.classList.remove('screen-exit');
+                    goBackHome();
+                }, 500);
+            }, 2000);
+        }
+
+        // --- NAVIGATION & UI HELPER ---
+        function showModal() { document.getElementById('modal-overlay').classList.remove('hidden'); }
+        function hideModal() { document.getElementById('modal-overlay').classList.add('hidden'); }
+        function executeCancel() {
+            hideModal();
+            clearInterval(focusInterval);
+            clearInterval(particleInterval);
+            isFocusActive = false;
+            localStorage.removeItem('focusEndTime');
+            totalBurnSeconds = Math.max(0, totalBurnSeconds - 3600);
+            updateBurnUI();
+            const activeScreen = document.getElementById('screen-active');
+            activeScreen.classList.add('screen-exit');
+            setTimeout(() => {
+                activeScreen.classList.remove('screen-exit');
+                goBackHome();
+                if (totalBurnSeconds <= 0) triggerGameOver(true);
+            }, 400);
+        }
+
+        function createParticle() {
+            const container = document.getElementById('active-flame-container');
+            if (document.getElementById('screen-active').classList.contains('hidden')) return;
+            const p = document.createElement('div');
+            p.classList.add('particle');
+            p.style.background = totalBurnSeconds >= 144000 ? "#DA70D6" : "#ffae00";
+            const side = Math.random() > 0.5 ? -50 : 450;
+            const top = Math.random() * 200;
+            p.style.left = side + 'px'; p.style.top = top + 'px';
+            container.appendChild(p);
+            p.animate([{ opacity: 1 }, { left: '190px', top: '90px', opacity: 0 }], { duration: 1200 }).onfinish = () => p.remove();
+        }
+
+        function changeScreen(oldId, newId) {
+            document.getElementById(oldId).classList.add('hidden');
+            document.getElementById(newId).classList.remove('hidden');
+        }
+
+        function goBackHome() {
+            if (isGameOver) return;
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById('screen-home').classList.remove('hidden');
+        }
+
+        function showSettings() { changeScreen('screen-home', 'screen-settings'); }
+        function showProfile() { 
+            document.getElementById('goal-input').value = dailyGoalHours;
+            document.getElementById('goal-slider').value = dailyGoalHours;
+            setIntensity(learningIntensity);
+            changeScreen('screen-home', 'screen-profile'); 
+        }
+
+        function setIntensity(level) {
+            learningIntensity = level;
+            document.querySelectorAll('.intensity-option').forEach(opt => opt.classList.remove('active'));
+            document.getElementById('int-' + level).classList.add('active');
+            const factor = intensityFactors[level];
+            document.getElementById('display-factor').innerText = 'x' + factor;
+            document.getElementById('display-bonus').innerText = factor + 'm';
+        }
+
+        function syncGoalSlider(v) { let val = Math.min(24, Math.max(1, parseInt(v) || 1)); document.getElementById('goal-slider').value = val; }
+        function syncGoalInput(v) { document.getElementById('goal-input').value = v; }
+        function saveGoalAndReturn() { dailyGoalHours = parseInt(document.getElementById('goal-input').value); localStorage.setItem('dailyGoal', dailyGoalHours); localStorage.setItem('intensity', learningIntensity); goBackHome(); }
+        function syncFromInput(v) { let val = parseInt(v) || 0; if (val > 180) val = 180; document.getElementById('minutes-slider').value = val; }
+        function syncFromSlider(v) { document.getElementById('minutes-input-main').value = v; }
+
+        function showStats() {
+            loadHistory();
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById('screen-stats').classList.remove('hidden');
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const todayMins = focusHistory.daily[dateStr] || 0;
+            document.getElementById('stat-today').innerText = todayMins + " Min";
+            document.getElementById('stat-goal-display').innerText = (dailyGoalHours * 60) + " Min";
+            const chart = document.getElementById('week-chart');
+            chart.innerHTML = '';
+            const maxVal = Math.max(...focusHistory.week, dailyGoalHours * 60, 60); 
+            focusHistory.week.forEach(val => {
+                const bar = document.createElement('div');
+                bar.classList.add('chart-bar');
+                const heightPercent = Math.max(2, (val / maxVal * 100));
+                bar.style.height = heightPercent + '%';
+                chart.appendChild(bar);
+            });
+        }
+
+        function saveFocusSession(mins) {
+            loadHistory(); 
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            let dayIdx = (now.getDay() + 6) % 7; 
+            focusHistory.daily[dateStr] = (focusHistory.daily[dateStr] || 0) + mins;
+            focusHistory.week[dayIdx] += mins;
+            localStorage.setItem('focusHistory', JSON.stringify(focusHistory));
+        }
+
+        // --- TAGEBUCH LOGIK ---
+        function showJournal() {
+            const container = document.getElementById('journal-list-container');
+            container.innerHTML = "";
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById('screen-journal').classList.remove('hidden');
+
+            const dates = Object.keys(journalData).sort().reverse();
+            if (dates.length === 0) {
+                container.innerHTML = "<p style='opacity:0.4'>Noch keine Einträge vorhanden.</p>";
+            }
+
+            dates.forEach(date => {
+                const item = document.createElement('div');
+                item.className = 'journal-item';
+                item.onclick = () => openJournalEditor(date);
+                item.innerHTML = `
+                    <div class="date">${formatDate(date)}</div>
+                    <div class="preview">${journalData[date].substring(0, 40)}${journalData[date].length > 40 ? '...' : ''}</div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function openJournalEditor(date = null) {
+            currentEditingDate = date || new Date().toISOString().split('T')[0];
+            document.getElementById('journal-editor-date').innerText = formatDate(currentEditingDate);
+            document.getElementById('journal-text').value = journalData[currentEditingDate] || "";
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById('screen-journal-editor').classList.remove('hidden');
+        }
+
+        function saveJournalEntry() {
+            const text = document.getElementById('journal-text').value.trim();
+            if (text) {
+                journalData[currentEditingDate] = text;
+                localStorage.setItem('journalData', JSON.stringify(journalData));
+            } else {
+                delete journalData[currentEditingDate];
+                localStorage.setItem('journalData', JSON.stringify(journalData));
+            }
+            showJournal();
+        }
+
+        function formatDate(dateStr) {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateStr).toLocaleDateString('de-DE', options);
+        }
+
+        function debugTime(a) { 
+            if(a==='reset') totalBurnSeconds=86400; else totalBurnSeconds+=(a*3600); 
+            totalBurnSeconds=Math.min(MAX_TIME,Math.max(0,totalBurnSeconds)); 
+            if (totalBurnSeconds <= 0) triggerGameOver(true);
+            updateBurnUI(); 
+        }
+
+        // INIT
+        loadHistory();
+        syncTimeSinceLastExit();
+        startGlobalBurner();
+    </script>
+</body>
+</html>
